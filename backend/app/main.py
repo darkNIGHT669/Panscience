@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.routes import auth, chat, upload
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
-from app.db.session import engine
+from app.db.session import Base, engine
 from app.db.models import *  # noqa: F401,F403 — register all models with SQLAlchemy
 
 settings = get_settings()
@@ -47,16 +47,28 @@ async def lifespan(app: FastAPI):
         try:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             logger.info("pgvector extension ensured")
-        except (IntegrityError, Exception) as e:
+        except (IntegrityError, Exception):
             # If another worker registers it at the exact same millisecond, catch it safely
-            logger.warning("pgvector extension registration bypassed (already initialized or concurrent worker handled it)")
+            logger.warning(
+                "pgvector extension registration bypassed (already initialized or concurrent worker handled it)"
+            )
+
+        # Create any missing tables automatically when migrations are not present.
+        try:
+            await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database schema ensured")
+        except IntegrityError as e:
+            logger.warning(
+                "Database schema creation encountered a concurrent object creation; continuing. %s",
+                str(e),
+            )
 
     yield
 
     # Shutdown
     await engine.dispose()
     logger.info("Database connections closed")
-    
+
 # ─── App Instance ─────────────────────────────────────────────────────────────
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])

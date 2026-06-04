@@ -1,4 +1,5 @@
 import asyncio
+import os  # <-- Added to read environment variables
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -9,9 +10,15 @@ from alembic import context
 
 # Import all models so Alembic sees them
 from app.db.session import Base
-from app.db.models import *  # noqa
+from app.db.models import * # noqa
 
 config = context.config
+
+# ─── OVERRIDE INI WITH ENVIRONMENT ENVIRONMENT VARIABLE ──────────────────────
+# This overrides the database URL dynamically before Alembic handles connections
+if os.getenv("DATABASE_URL"):
+    config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+# ─────────────────────────────────────────────────────────────────────────────
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -38,6 +45,7 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
+    # This reads the configuration section which now contains your overridden URL
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

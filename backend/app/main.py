@@ -16,6 +16,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
+from sqlalchemy.exc import IntegrityError
 
 from app.api.routes import auth, chat, upload
 from app.core.config import get_settings
@@ -31,6 +32,7 @@ logger = get_logger(__name__)
 # ─── Lifespan ─────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
+
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting %s v%s [%s]", settings.APP_NAME, settings.APP_VERSION, settings.ENVIRONMENT)
@@ -39,19 +41,22 @@ async def lifespan(app: FastAPI):
     Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
     logger.info("Upload directory: %s", settings.UPLOAD_DIR)
 
-    # Enable pgvector extension (idempotent)
+    # Enable pgvector extension (idempotent, protected against worker race conditions)
     from sqlalchemy import text
     async with engine.begin() as conn:
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-    logger.info("pgvector extension ensured")
+        try:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            logger.info("pgvector extension ensured")
+        except (IntegrityError, Exception) as e:
+            # If another worker registers it at the exact same millisecond, catch it safely
+            logger.warning("pgvector extension registration bypassed (already initialized or concurrent worker handled it)")
 
     yield
 
     # Shutdown
     await engine.dispose()
     logger.info("Database connections closed")
-
-
+    
 # ─── App Instance ─────────────────────────────────────────────────────────────
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])

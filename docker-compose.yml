@@ -1,4 +1,4 @@
-version: "3.9"
+# Removed the obsolete version attribute to clean up the startup warning
 
 # ─── Shared Networks ──────────────────────────────────────────────────────────
 networks:
@@ -75,7 +75,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       UPLOAD_DIR: /app/uploads
       CORS_ORIGINS: '["http://localhost:3000","http://frontend:3000","http://localhost"]'
-      # Secrets — override with real values in .env or CI secrets
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production-32-characters!!}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
@@ -104,6 +103,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://panscience:panscience@postgres:5432/panscience
       OPENAI_API_KEY: ${OPENAI_API_KEY:-placeholder}
+    # Reset back to standard execution sequence:
     command: >
       sh -c "alembic upgrade head && echo 'Migrations complete'"
     networks:

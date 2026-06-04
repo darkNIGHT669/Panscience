@@ -83,11 +83,11 @@ Files >24 MB are split into 10-minute MP3 segments via `ffmpeg` before being sen
 
 ### 1. Clone & Configure
 ```bash
-git clone https://github.com/your-org/panscience-qa.git
-cd panscience-qa
+git clone https://github.com/darkNIGHT669/Panscience
+cd PanScience
 cp .env.example .env
 # Edit .env and add your OPENAI_API_KEY
-```
+``` 
 
 ### 2. Start All Services
 ```bash
